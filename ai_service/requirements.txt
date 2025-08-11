@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+boto3
+sentence-transformers
+pydantic
+python-multipart
+requests
