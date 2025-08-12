@@ -1,31 +1,53 @@
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcrypt');
-const db = require('./db');
+import express from "express";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import User from "../models/User.js"; // adjust path if needed
 
-async function createUser(email, password) {
-  const hash = await bcrypt.hash(password, 10);
-  const res = await db.query('INSERT INTO users (email, password_hash) VALUES ($1,$2) RETURNING *', [email, hash]);
-  return res.rows[0];
-}
+const router = express.Router();
 
-async function verifyUser(email, password) {
-  const res = await db.query('SELECT * FROM users WHERE email=$1', [email]);
-  const user = res.rows[0];
-  if (!user) return null;
-  const ok = await bcrypt.compare(password, user.password_hash);
-  if (!ok) return null;
-  const token = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
-  return { token, user };
-}
-
-function authMiddleware(req, res, next) {
-  const h = req.headers.authorization;
-  if (!h) return res.status(401).json({ error: 'unauth' });
-  const token = h.split(' ')[1];
+// POST /auth/login
+router.post("/login", async (req, res) => {
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = payload; next();
-  } catch (e) { return res.status(401).json({ error: 'invalid token' }) }
-}
+    const { email, password } = req.body;
 
-module.exports = { createUser, verifyUser, authMiddleware };
+    // Check if user exists
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(401).json({ success: false, message: "Invalid email or password" });
+    }
+
+    // Compare passwords
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: "Invalid email or password" });
+    }
+
+    // Generate JWT
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "7d"
+    });
+
+    // Send success response
+    return res.status(200).json({
+      success: true,
+      message: "Login successful",
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name
+      }
+    });
+
+  } catch (error) {
+    console.error("Login error:", error);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// Example protected route
+router.get("/profile", async (req, res) => {
+  return res.status(200).json({ message: "Protected route" });
+});
+
+export default router;
