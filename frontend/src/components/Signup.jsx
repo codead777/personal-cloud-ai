@@ -12,13 +12,14 @@ export default function Signup({ onSignup }) {
 
     try {
       console.log("Signing up:", name, email, password);
+
       const res = await fetch("https://personal-cloud-ai.onrender.com/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, password }),
       });
 
-      const data = await res.json(); // safer than text+parse
+      const data = await res.json(); // safer parsing
 
       if (!res.ok) {
         throw new Error(data.message || "Signup failed");
@@ -30,7 +31,8 @@ export default function Signup({ onSignup }) {
       if (onSignup) {
         onSignup(data.token);
       } else {
-        window.location.href = "/dashboard"; // Change to your page
+        // Redirect after signup — change path if needed
+        window.location.href = "/dashboard";
       }
     } catch (err) {
       console.error("Signup error:", err);
