@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 
 export default function Upload({ token }) {
   const [file, setFile] = useState(null);
@@ -13,25 +13,43 @@ export default function Upload({ token }) {
 
       const res = await fetch("https://personal-cloud-ai.onrender.com/api/files", {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          // note: do NOT set Content-Type for multipart/form-data; browser sets it with boundaries
+          Authorization: `Bearer ${token}`
+        },
         body: formData,
       });
 
-      if (!res.ok) throw new Error("Upload failed");
-      setMessage("File uploaded successfully!");
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: "Upload failed" }));
+        throw new Error(err.message || "Upload failed");
+      }
+
+      const data = await res.json();
+      setMessage(data.message || "Upload successful");
     } catch (err) {
-      setMessage(err.message);
+      console.error("Upload error:", err);
+      setMessage(err.message || "Upload failed");
     }
   }
 
   return (
-    <form onSubmit={handleUpload} className="bg-white shadow p-6 rounded max-w-sm mx-auto space-y-3">
-      <h2 className="text-lg font-bold">Upload File</h2>
-      <input type="file" onChange={(e) => setFile(e.target.files[0])} />
-      <button type="submit" className="bg-blue-500 text-white p-2 w-full rounded">
-        Upload
-      </button>
-      {message && <p className="text-sm mt-2">{message}</p>}
-    </form>
+    <div className="max-w-2xl mx-auto p-6 bg-white rounded shadow">
+      <h2 className="text-xl font-semibold mb-4">Upload File</h2>
+      {message && <div className="mb-3 text-sm text-gray-700">{message}</div>}
+      <form onSubmit={handleUpload}>
+        <input
+          type="file"
+          onChange={(e) => setFile(e.target.files?.[0] || null)}
+          className="mb-3"
+        />
+        <button
+          type="submit"
+          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+        >
+          Upload
+        </button>
+      </form>
+    </div>
   );
 }
