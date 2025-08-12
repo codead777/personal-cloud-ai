@@ -10,7 +10,7 @@ const { Pool } = pkg;
 
 // PostgreSQL connection pool
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: process.env.DATABASE_URL || "postgresql://personal_cloud_db_user:rZMa1FyiTepj2A7cFqTJnpAnrT2Zv18a@dpg-d2dio4ruibrs739nvjs0-a.oregon-postgres.render.com/personal_cloud_db",
   ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false
 });
 
