@@ -8,27 +8,34 @@ dotenv.config();
 
 const { Pool } = pkg;
 
-// PostgreSQL connection pool
+// PostgreSQL connection pool with SSL always enabled for Render
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || "postgresql://personal_cloud_db_user:rZMa1FyiTepj2A7cFqTJnpAnrT2Zv18a@dpg-d2dio4ruibrs739nvjs0-a.oregon-postgres.render.com/personal_cloud_db",
-  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false
+  connectionString:
+    process.env.DATABASE_URL ||
+    "postgresql://personal_cloud_db_user:rZMa1FyiTepj2A7cFqTJnpAnrT2Zv18a@dpg-d2dio4ruibrs739nvjs0-a.oregon-postgres.render.com/personal_cloud_db",
+  ssl: { rejectUnauthorized: false }
 });
 
 const app = express();
 
 // CORS setup
-app.use(cors({
-  origin: "https://personal-cloud-ai.vercel.app",
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: true
-}));
-app.options("*", cors({
-  origin: "https://personal-cloud-ai.vercel.app",
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: true
-}));
+app.use(
+  cors({
+    origin: "https://personal-cloud-ai.vercel.app",
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true
+  })
+);
+app.options(
+  "*",
+  cors({
+    origin: "https://personal-cloud-ai.vercel.app",
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true
+  })
+);
 
 app.use(express.json());
 
