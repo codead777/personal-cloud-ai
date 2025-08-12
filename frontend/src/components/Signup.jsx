@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 
 export default function Signup({ onSignup }) {
-  const [name, setName] = useState("");
+  const [name, setName] = useState("");   // Added state for name
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -10,11 +10,11 @@ export default function Signup({ onSignup }) {
     e.preventDefault();
     setError("");
     try {
-      console.log("Signing up:", email, password);
+      console.log("Signing up:", name, email, password);
       const res = await fetch("https://personal-cloud-ai.onrender.com/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ name, email, password }), // Send name too
       });
 
       const text = await res.text();
@@ -40,6 +40,16 @@ export default function Signup({ onSignup }) {
       <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-lg w-96">
         <h2 className="text-2xl font-bold mb-4 text-center">Sign Up</h2>
         {error && <p className="text-red-500 mb-3">{error}</p>}
+
+        <input
+          type="text"
+          placeholder="Name"
+          className="w-full p-2 border rounded mb-3"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+        />
+
         <input
           type="email"
           placeholder="Email"
@@ -48,6 +58,7 @@ export default function Signup({ onSignup }) {
           onChange={(e) => setEmail(e.target.value)}
           required
         />
+
         <input
           type="password"
           placeholder="Password"
@@ -56,6 +67,7 @@ export default function Signup({ onSignup }) {
           onChange={(e) => setPassword(e.target.value)}
           required
         />
+
         <button
           type="submit"
           className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 rounded transition"
