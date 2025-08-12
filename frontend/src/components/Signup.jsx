@@ -14,7 +14,7 @@ export default function Signup({ onSignup }) {
       const res = await fetch("https://personal-cloud-ai.onrender.com/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ name, email, password }),
       });
 
       const text = await res.text();
