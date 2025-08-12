@@ -1,35 +1,64 @@
-import React, { useState, useEffect } from 'react'
-import Navbar from './components/Navbar'
-import Upload from './components/Upload'
-import Footer from './components/Footer'
+import { useState } from "react";
+import Login from "./components/Login";
+import Signup from "./components/Signup";
+import Upload from "./components/Upload";
 
 export default function App() {
-  const [dark, setDark] = useState(false)
+  const [token, setToken] = useState(localStorage.getItem("token") || "");
+  const [page, setPage] = useState(token ? "upload" : "login");
 
-  useEffect(() => {
-    if (dark) document.documentElement.classList.add('dark')
-    else document.documentElement.classList.remove('dark')
-  }, [dark])
+  function handleLogout() {
+    localStorage.removeItem("token");
+    setToken("");
+    setPage("login");
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-900 transition-colors duration-500">
-      <Navbar dark={dark} setDark={setDark} />
-      <main className="container-max py-12 sm:py-16">
-        <section className="mb-12 animate-fadeIn">
-          <div className="bg-white dark:bg-gray-800/60 card-bg rounded-2xl shadow-lg p-6 sm:p-8">
-            <h2 className="text-3xl font-extrabold tracking-tight mb-2">Personal Cloud AI</h2>
-            <p className="text-gray-600 dark:text-gray-300 max-w-2xl">
-              Upload files, manage them, and interact with AI — now with a smooth modern UI powered by Tailwind CSS.
-            </p>
-          </div>
-        </section>
+    <div className="min-h-screen bg-gray-100 p-6">
+      <header className="flex justify-between items-center mb-6">
+        <h1 className="text-xl font-bold">Personal Cloud</h1>
+        {token && (
+          <button
+            onClick={handleLogout}
+            className="bg-red-500 text-white px-3 py-1 rounded"
+          >
+            Logout
+          </button>
+        )}
+      </header>
 
-        <section className="animate-fadeIn" style={{animationDelay: '80ms'}}>
-          <Upload />
-        </section>
+      <nav className="mb-4 flex gap-4">
+        {!token && (
+          <>
+            <button
+              onClick={() => setPage("login")}
+              className={`px-3 py-1 rounded ${page === "login" ? "bg-blue-500 text-white" : "bg-white border"}`}
+            >
+              Login
+            </button>
+            <button
+              onClick={() => setPage("signup")}
+              className={`px-3 py-1 rounded ${page === "signup" ? "bg-green-500 text-white" : "bg-white border"}`}
+            >
+              Signup
+            </button>
+          </>
+        )}
+        {token && (
+          <button
+            onClick={() => setPage("upload")}
+            className={`px-3 py-1 rounded ${page === "upload" ? "bg-blue-500 text-white" : "bg-white border"}`}
+          >
+            Upload
+          </button>
+        )}
+      </nav>
+
+      <main>
+        {page === "login" && <Login onLogin={(t) => { setToken(t); setPage("upload"); }} />}
+        {page === "signup" && <Signup />}
+        {page === "upload" && token && <Upload token={token} />}
       </main>
-
-      <Footer />
     </div>
-  )
+  );
 }
