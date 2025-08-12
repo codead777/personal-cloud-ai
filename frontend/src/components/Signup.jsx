@@ -9,19 +9,27 @@ export default function Signup({ onSignup }) {
     e.preventDefault();
     setError("");
     try {
+      console.log("Signing up:", email, password);
       const res = await fetch("https://personal-cloud-ai.onrender.com/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
+
+      const text = await res.text();
+      console.log("Raw response text:", text);
+
       if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || "Signup failed");
+        throw new Error(text || "Signup failed");
       }
-      const data = await res.json();
+
+      const data = JSON.parse(text);
+      console.log("Signup success, data:", data);
+
       localStorage.setItem("token", data.token);
       if (onSignup) onSignup(data.token);
     } catch (err) {
+      console.error("Signup error:", err);
       setError(err.message);
     }
   };
