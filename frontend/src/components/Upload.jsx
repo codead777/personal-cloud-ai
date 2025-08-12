@@ -1,71 +1,37 @@
-import React, { useState } from "react";
+import { useState } from "react";
 
 export default function Upload({ token }) {
   const [file, setFile] = useState(null);
-  const [status, setStatus] = useState("");
+  const [message, setMessage] = useState("");
 
-  const backendUrl = "https://personal-cloud-ai.onrender.com"; // <-- change if needed
-
-  const handleFileChange = (e) => {
-    setFile(e.target.files[0]);
-  };
-
-  const handleUpload = async () => {
-    if (!file) {
-      setStatus("Please select a file first.");
-      return;
-    }
-
-    setStatus("Uploading...");
-
-    const formData = new FormData();
-    formData.append("file", file);
-
+  async function handleUpload(e) {
+    e.preventDefault();
+    if (!file) return alert("Please select a file");
     try {
-      const res = await fetch(`${backendUrl}/api/files`, {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("https://personal-cloud-ai.onrender.com/api/files", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`, // token must come from login
-        },
+        headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
 
-      if (!res.ok) {
-        throw new Error(`Upload failed: ${res.statusText}`);
-      }
-
-      const data = await res.json();
-      console.log("Upload success:", data);
-      setStatus("✅ Upload successful!");
+      if (!res.ok) throw new Error("Upload failed");
+      setMessage("File uploaded successfully!");
     } catch (err) {
-      console.error(err);
-      setStatus("❌ Upload failed. Check console for details.");
+      setMessage(err.message);
     }
-  };
+  }
 
   return (
-    <div className="flex flex-col items-center gap-4 p-6 bg-gray-900 text-white rounded-lg shadow-lg w-full max-w-md mx-auto">
-      <h2 className="text-xl font-semibold">Upload File</h2>
-
-      <input
-        type="file"
-        onChange={handleFileChange}
-        className="block w-full text-sm text-gray-300
-        file:mr-4 file:py-2 file:px-4
-        file:rounded-full file:border-0
-        file:text-sm file:font-semibold
-        file:bg-blue-500 file:text-white
-        hover:file:bg-blue-600"
-      />
-
-      <button
-        onClick={handleUpload}
-        className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-full transition duration-200"
-      >
+    <form onSubmit={handleUpload} className="bg-white shadow p-6 rounded max-w-sm mx-auto space-y-3">
+      <h2 className="text-lg font-bold">Upload File</h2>
+      <input type="file" onChange={(e) => setFile(e.target.files[0])} />
+      <button type="submit" className="bg-blue-500 text-white p-2 w-full rounded">
         Upload
       </button>
-
-      {status && <p className="text-sm mt-2">{status}</p>}
-    </div>
+      {message && <p className="text-sm mt-2">{message}</p>}
+    </form>
   );
 }
