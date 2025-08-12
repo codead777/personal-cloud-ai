@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 
 export default function Signup({ onSignup }) {
-  const [name, setName] = useState("");   // Added state for name
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -9,26 +9,29 @@ export default function Signup({ onSignup }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+
     try {
       console.log("Signing up:", name, email, password);
       const res = await fetch("https://personal-cloud-ai.onrender.com/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }), // Send name too
+        body: JSON.stringify({ name, email, password }),
       });
 
-      const text = await res.text();
-      console.log("Raw response text:", text);
+      const data = await res.json(); // safer than text+parse
 
       if (!res.ok) {
-        throw new Error(text || "Signup failed");
+        throw new Error(data.message || "Signup failed");
       }
 
-      const data = JSON.parse(text);
       console.log("Signup success, data:", data);
-
       localStorage.setItem("token", data.token);
-      if (onSignup) onSignup(data.token);
+
+      if (onSignup) {
+        onSignup(data.token);
+      } else {
+        window.location.href = "/dashboard"; // Change to your page
+      }
     } catch (err) {
       console.error("Signup error:", err);
       setError(err.message);
