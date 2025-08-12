@@ -1,43 +1,59 @@
-import { useState } from "react";
+import React, { useState } from "react";
 
-export default function Signup() {
+export default function Signup({ onSignup }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
 
-  async function handleSignup(e) {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
     try {
-      const res = await fetch("https://personal-cloud-ai.onrender.com/api/auth/signup", {
+      const res = await fetch("https://personal-cloud-ai.onrender.com/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
-      if (!res.ok) throw new Error("Signup failed");
-      alert("Signup successful! Please log in.");
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "Signup failed");
+      }
+      const data = await res.json();
+      localStorage.setItem("token", data.token);
+      if (onSignup) onSignup(data.token);
     } catch (err) {
-      alert(err.message);
+      setError(err.message);
     }
-  }
+  };
 
   return (
-    <form onSubmit={handleSignup} className="bg-white shadow p-6 rounded max-w-sm mx-auto space-y-3">
-      <h2 className="text-lg font-bold">Sign Up</h2>
-      <input
-        className="border p-2 w-full"
-        placeholder="Email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-      />
-      <input
-        type="password"
-        className="border p-2 w-full"
-        placeholder="Password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-      />
-      <button type="submit" className="bg-green-500 text-white p-2 w-full rounded">
-        Sign Up
-      </button>
-    </form>
+    <div className="flex justify-center items-center min-h-screen bg-gray-100">
+      <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-lg w-96">
+        <h2 className="text-2xl font-bold mb-4 text-center">Sign Up</h2>
+        {error && <p className="text-red-500 mb-3">{error}</p>}
+        <input
+          type="email"
+          placeholder="Email"
+          className="w-full p-2 border rounded mb-3"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
+        <input
+          type="password"
+          placeholder="Password"
+          className="w-full p-2 border rounded mb-4"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
+        <button
+          type="submit"
+          className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 rounded transition"
+        >
+          Sign Up
+        </button>
+      </form>
+    </div>
   );
 }
