@@ -1,5 +1,5 @@
 
-# Personal Cloud (Monorepo)
+# Personal Cloud
 
 This monorepo contains frontend and backend for the Personal Cloud project.
 
