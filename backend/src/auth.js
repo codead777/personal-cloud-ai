@@ -5,7 +5,7 @@ import jwt from "jsonwebtoken";
 export default function authRoutes(pool) {
   const router = express.Router();
 
-  // POST /auth/signup
+  // Signup
   router.post("/signup", async (req, res) => {
     try {
       const { name, email, password } = req.body;
@@ -14,16 +14,13 @@ export default function authRoutes(pool) {
         return res.status(400).json({ success: false, message: "All fields are required" });
       }
 
-      // Check if user exists
       const existingUser = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
       if (existingUser.rows.length > 0) {
         return res.status(400).json({ success: false, message: "Email already in use" });
       }
 
-      // Hash password
       const hashedPassword = await bcrypt.hash(password, 10);
 
-      // Insert user into DB
       const newUser = await pool.query(
         "INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id, name, email",
         [name, email, hashedPassword]
@@ -44,7 +41,7 @@ export default function authRoutes(pool) {
     }
   });
 
-  // POST /auth/login
+  // Login
   router.post("/login", async (req, res) => {
     try {
       const { email, password } = req.body;
