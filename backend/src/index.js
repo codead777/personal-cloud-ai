@@ -1,40 +1,47 @@
-require('dotenv').config();
-const express = require('express');
-const bodyParser = require('body-parser');
-const cors = require('cors');
-const db = require('./db');
-const filesRouter = require('./routes/files');
-const searchRouter = require('./routes/search');
-const { createUser, verifyUser } = require('./auth');
+import express from "express";
+import mongoose from "mongoose";
+import dotenv from "dotenv";
+import cors from "cors";
+import authRoutes from "./routes/auth.js"; // adjust path if needed
+
+dotenv.config();
 
 const app = express();
-app.use(cors());
-app.use(bodyParser.json());
 
-app.post('/api/auth/signup', async (req, res) => {
-  const { email, password } = req.body;
-  try { const user = await createUser(email, password); res.json({ id: user.id, email: user.email }); }
-  catch (e) { res.status(400).json({ error: e.message }); }
+// CORS configuration
+app.use(cors({
+  origin: "https://personal-cloud-ai.vercel.app", // allow only your frontend domain
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true
+}));
+
+// Handle preflight requests
+app.options("*", cors({
+  origin: "https://personal-cloud-ai.vercel.app",
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true
+}));
+
+// Middleware
+app.use(express.json());
+
+// Routes
+app.use("/auth", authRoutes);
+
+// Connect to MongoDB
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+}).then(() => {
+  console.log("MongoDB connected");
+}).catch(err => {
+  console.error("MongoDB connection error:", err);
 });
 
-app.post('/api/auth/login', async (req, res) => {
-  const { email, password } = req.body;
-  const ok = await verifyUser(email, password);
-  if (!ok) return res.status(401).json({ error: 'invalid' });
-  res.json(ok);
+// Start server
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
-
-app.use('/api/files', filesRouter);
-app.use('/api/search', searchRouter);
-
-// internal endpoint used by AI service to store embeddings/tags
-app.post('/internal/save-embedding', async (req, res) => {
-  const { id, embedding, tags } = req.body;
-  try {
-    await db.query('UPDATE files SET embedding=$1, tags=$2 WHERE id=$3', [embedding, tags, id]);
-    res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-const port = process.env.BACKEND_PORT || 5000;
-app.listen(port, () => console.log('Backend listening on', port));
