@@ -9,7 +9,14 @@ const authRoutes = require('./routes/auth');
 const fileRoutes = require('./routes/files');
 
 const app = express();
-app.use(cors());
+
+// ✅ Updated CORS to allow only your Vercel frontend
+app.use(cors({
+  origin: "https://personal-cloud-ai.vercel.app", // change to your Vercel frontend URL
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  credentials: true
+}));
+
 app.use(express.json());
 
 app.use('/api/auth', authRoutes);
