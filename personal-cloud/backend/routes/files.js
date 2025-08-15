@@ -24,7 +24,7 @@ function inferTagsFromFilename(name) {
 
 // helper: stream upload to Cloudinary
 const streamUpload = (buffer) => new Promise((resolve, reject) => {
-  const stream = cloudinary.uploader.upload_stream({ folder: 'personal-cloud' }, (err, result) => {
+  const stream = cloudinary.uploader.upload_stream({ folder: 'personal-cloud' , resource_type: 'raw' }, (err, result) => {
     if (err) reject(err);
     else resolve(result);
   });
