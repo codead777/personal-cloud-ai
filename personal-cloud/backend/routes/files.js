@@ -62,11 +62,13 @@ router.post('/upload', auth, upload.array('files', 20), async (req, res) => {
       // Upload to Cloudinary
       const result = await streamUpload(f.buffer);
 
+      const viewUrl = result.secure_url.replace('/upload/', '/upload/fl_inline/');
+
       const fileDoc = new File({
         user: req.user.id,
         originalName: f.originalname,
         storedName: result.public_id,
-        fileUrl: result.secure_url,
+        fileUrl: viewUrl,
         size: f.size,
         mimeType: f.mimetype,
         sha256: sha,
