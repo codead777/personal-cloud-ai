@@ -1,4 +1,4 @@
-import { API_BASE } from "../api.js";
+import { API_BASE } from "../services/api.js";
 export default function FileCard({ file, onDelete }){
   return (
     <div className={`p-4 bg-white rounded-lg shadow ${file.duplicateOf ? 'ring-2 ring-red-200' : ''}`}>
