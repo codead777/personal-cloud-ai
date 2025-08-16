@@ -1,5 +1,5 @@
 // Always point to Render backend
-const API_BASE = "https://personal-cloud-ai-1seg.onrender.com";
+export const API_BASE = "https://personal-cloud-ai-1seg.onrender.com";
 
 function getToken() {
   return localStorage.getItem('pc_token');
