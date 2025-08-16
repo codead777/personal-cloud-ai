@@ -5,7 +5,7 @@ const File = require('../models/File');
 const auth = require('../middleware/auth');
 const cloudinary = require('cloudinary').v2;
 const streamifier = require('streamifier');
-const https = require('https');
+const jwt = require("jsonwebtoken");
 
 const router = express.Router();
 
@@ -20,7 +20,7 @@ const upload = multer({ storage, limits: { fileSize: MAX_UPLOAD } });
 
 function inferTagsFromFilename(name) {
   const tokens = (name || '').split(/[^a-zA-Z0-9]+/).filter(Boolean);
-  return [...new Set(tokens.slice(0,3).map(t => t.toLowerCase()))];
+  return [...new Set(tokens.slice(0, 3).map(t => t.toLowerCase()))];
 }
 
 // helper: stream upload to Cloudinary
@@ -35,18 +35,19 @@ const streamUpload = (buffer) => new Promise((resolve, reject) => {
   streamifier.createReadStream(buffer).pipe(stream);
 });
 
-// upload endpoint (multiple files), expects field name 'files' to match existing frontend
+// upload endpoint (multiple files), expects field name 'files'
 router.post('/upload', auth, upload.array('files', 20), async (req, res) => {
   try {
     if (!req.files || req.files.length === 0)
       return res.status(400).json({ error: 'No files uploaded' });
+
     const saved = [];
     for (const f of req.files) {
       const sha = crypto.createHash('sha256').update(f.buffer).digest('hex');
       const dup = await File.findOne({ user: req.user.id, sha256: sha });
       const tags = inferTagsFromFilename(f.originalname);
 
-      // If duplicate by content hash, just record a dup without re-uploading
+      // duplicate handling
       if (dup) {
         const fileDoc = new File({
           user: req.user.id,
@@ -57,38 +58,39 @@ router.post('/upload', auth, upload.array('files', 20), async (req, res) => {
           mimeType: f.mimetype,
           sha256: sha,
           tags,
-          duplicateOf: dup._id
+          duplicateOf: dup._id,
         });
         await fileDoc.save();
         saved.push({
           id: fileDoc._id,
           duplicateOf: fileDoc.duplicateOf,
           originalName: fileDoc.originalName,
-          url: fileDoc.fileUrl
+          url: fileDoc.fileUrl,
         });
         continue;
       }
 
-      // Upload to Cloudinary
+      // Upload new file
       const result = await streamUpload(f.buffer);
+      const viewUrl = result.secure_url.replace('/upload/', '/upload/fl_inline/');
 
       const fileDoc = new File({
         user: req.user.id,
         originalName: f.originalname,
         storedName: result.public_id,
-        fileUrl: result.secure_url,
+        fileUrl: viewUrl,
         size: f.size,
         mimeType: f.mimetype,
         sha256: sha,
         tags,
-        duplicateOf: null
+        duplicateOf: null,
       });
       await fileDoc.save();
       saved.push({
         id: fileDoc._id,
         duplicateOf: null,
         originalName: fileDoc.originalName,
-        url: fileDoc.fileUrl
+        url: fileDoc.fileUrl,
       });
     }
     res.json({ saved });
@@ -98,63 +100,29 @@ router.post('/upload', auth, upload.array('files', 20), async (req, res) => {
   }
 });
 
-// list files for user (preserve 'url' field for frontend compatibility)
+// list files
 router.get('/', auth, async (req, res) => {
   try {
     const files = await File.find({ user: req.user.id })
       .sort({ createdAt: -1 })
       .lean();
-    const withUrl = files.map((f) => ({ ...f, url: f.fileUrl }));
+    const withUrl = files.map(f => ({ ...f, url: f.fileUrl }));
     res.json({ files: withUrl });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// GET /api/files/view/:id
-router.get('/view/:id', async (req, res) => {
-  try {
-    // get token from header or query
-    let token = null;
-    if (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
-      token = req.headers.authorization.split(" ")[1];
-    } else if (req.query.token) {
-      token = req.query.token;
-    }
-
-    if (!token) {
-      return res.status(401).json({ error: "Missing token" });
-    }
-
-    // verify token
-    const jwt = require("jsonwebtoken");
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    // find file by ID + ownership
-    const file = await File.findOne({ _id: req.params.id, user: decoded.id });
-    if (!file) return res.status(404).json({ error: "File not found" });
-
-    // redirect to cloudinary (inline viewing)
-    return res.redirect(file.fileUrl);
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: err.message });
-  }
-});
-
-// delete file (Cloudinary + DB)
+// delete file
 router.delete('/:id', auth, async (req, res) => {
   try {
-    const file = await File.findOne({
-      _id: req.params.id,
-      user: req.user.id
-    });
+    const file = await File.findOne({ _id: req.params.id, user: req.user.id });
     if (!file) return res.status(404).json({ error: 'Not found' });
 
     try {
       await cloudinary.uploader.destroy(file.storedName);
     } catch (e) {
-      /* ignore if already gone */
+      /* ignore */
     }
     await file.deleteOne();
     res.json({ ok: true });
@@ -163,5 +131,28 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
+// view file (supports token via header or query param)
+router.get('/view/:id', async (req, res) => {
+  try {
+    let token = null;
+    if (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
+      token = req.headers.authorization.split(" ")[1];
+    } else if (req.query.token) {
+      token = req.query.token;
+    }
+
+    if (!token) return res.status(401).json({ error: "Missing token" });
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    const file = await File.findOne({ _id: req.params.id, user: decoded.id });
+    if (!file) return res.status(404).json({ error: "File not found" });
+
+    return res.redirect(file.fileUrl);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 module.exports = router;
