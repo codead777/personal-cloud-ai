@@ -111,36 +111,34 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
-// NEW: view file inline
-router.get('/view/:id', auth, async (req, res) => {
+// GET /api/files/view/:id
+router.get('/view/:id', async (req, res) => {
   try {
-    const file = await File.findOne({ _id: req.params.id, user: req.user.id });
-    if (!file) return res.status(404).send('Not found');
+    // get token from header or query
+    let token = null;
+    if (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
+      token = req.headers.authorization.split(" ")[1];
+    } else if (req.query.token) {
+      token = req.query.token;
+    }
 
-    https.get(file.fileUrl, (cloudRes) => {
-      if (cloudRes.statusCode !== 200) {
-        return res
-          .status(cloudRes.statusCode)
-          .send('Error fetching file from Cloudinary');
-      }
+    if (!token) {
+      return res.status(401).json({ error: "Missing token" });
+    }
 
-      res.setHeader(
-        'Content-Type',
-        file.mimeType || 'application/octet-stream'
-      );
-      res.setHeader(
-        'Content-Disposition',
-        `inline; filename="${file.originalName}"`
-      );
+    // verify token
+    const jwt = require("jsonwebtoken");
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-      cloudRes.pipe(res); // stream to browser
-    }).on('error', (err) => {
-      console.error(err);
-      res.status(500).send('Error streaming file');
-    });
+    // find file by ID + ownership
+    const file = await File.findOne({ _id: req.params.id, user: decoded.id });
+    if (!file) return res.status(404).json({ error: "File not found" });
+
+    // redirect to cloudinary (inline viewing)
+    return res.redirect(file.fileUrl);
   } catch (err) {
     console.error(err);
-    res.status(500).send('Error fetching file');
+    return res.status(500).json({ error: err.message });
   }
 });
 
@@ -164,5 +162,6 @@ router.delete('/:id', auth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 module.exports = router;
