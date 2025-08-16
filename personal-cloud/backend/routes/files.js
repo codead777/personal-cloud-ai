@@ -5,6 +5,7 @@ const File = require('../models/File');
 const auth = require('../middleware/auth');
 const cloudinary = require('cloudinary').v2;
 const streamifier = require('streamifier');
+const https = require('https');
 
 const router = express.Router();
 
@@ -24,17 +25,21 @@ function inferTagsFromFilename(name) {
 
 // helper: stream upload to Cloudinary
 const streamUpload = (buffer) => new Promise((resolve, reject) => {
-  const stream = cloudinary.uploader.upload_stream({ folder: 'personal-cloud' , resource_type: 'auto' }, (err, result) => {
-    if (err) reject(err);
-    else resolve(result);
-  });
+  const stream = cloudinary.uploader.upload_stream(
+    { folder: 'personal-cloud', resource_type: 'auto' },
+    (err, result) => {
+      if (err) reject(err);
+      else resolve(result);
+    }
+  );
   streamifier.createReadStream(buffer).pipe(stream);
 });
 
 // upload endpoint (multiple files), expects field name 'files' to match existing frontend
 router.post('/upload', auth, upload.array('files', 20), async (req, res) => {
   try {
-    if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'No files uploaded' });
+    if (!req.files || req.files.length === 0)
+      return res.status(400).json({ error: 'No files uploaded' });
     const saved = [];
     for (const f of req.files) {
       const sha = crypto.createHash('sha256').update(f.buffer).digest('hex');
@@ -55,20 +60,23 @@ router.post('/upload', auth, upload.array('files', 20), async (req, res) => {
           duplicateOf: dup._id
         });
         await fileDoc.save();
-        saved.push({ id: fileDoc._id, duplicateOf: fileDoc.duplicateOf, originalName: fileDoc.originalName, url: fileDoc.fileUrl });
+        saved.push({
+          id: fileDoc._id,
+          duplicateOf: fileDoc.duplicateOf,
+          originalName: fileDoc.originalName,
+          url: fileDoc.fileUrl
+        });
         continue;
       }
 
       // Upload to Cloudinary
       const result = await streamUpload(f.buffer);
 
-      const viewUrl = result.secure_url.replace('/upload/', '/upload/fl_inline/');
-
       const fileDoc = new File({
         user: req.user.id,
         originalName: f.originalname,
         storedName: result.public_id,
-        fileUrl: viewUrl,
+        fileUrl: result.secure_url,
         size: f.size,
         mimeType: f.mimetype,
         sha256: sha,
@@ -76,7 +84,12 @@ router.post('/upload', auth, upload.array('files', 20), async (req, res) => {
         duplicateOf: null
       });
       await fileDoc.save();
-      saved.push({ id: fileDoc._id, duplicateOf: null, originalName: fileDoc.originalName, url: fileDoc.fileUrl });
+      saved.push({
+        id: fileDoc._id,
+        duplicateOf: null,
+        originalName: fileDoc.originalName,
+        url: fileDoc.fileUrl
+      });
     }
     res.json({ saved });
   } catch (err) {
@@ -88,21 +101,63 @@ router.post('/upload', auth, upload.array('files', 20), async (req, res) => {
 // list files for user (preserve 'url' field for frontend compatibility)
 router.get('/', auth, async (req, res) => {
   try {
-    const files = await File.find({ user: req.user.id }).sort({ createdAt: -1 }).lean();
-    const withUrl = files.map(f => ({ ...f, url: f.fileUrl }));
+    const files = await File.find({ user: req.user.id })
+      .sort({ createdAt: -1 })
+      .lean();
+    const withUrl = files.map((f) => ({ ...f, url: f.fileUrl }));
     res.json({ files: withUrl });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
+// NEW: view file inline
+router.get('/view/:id', auth, async (req, res) => {
+  try {
+    const file = await File.findOne({ _id: req.params.id, user: req.user.id });
+    if (!file) return res.status(404).send('Not found');
+
+    https.get(file.fileUrl, (cloudRes) => {
+      if (cloudRes.statusCode !== 200) {
+        return res
+          .status(cloudRes.statusCode)
+          .send('Error fetching file from Cloudinary');
+      }
+
+      res.setHeader(
+        'Content-Type',
+        file.mimeType || 'application/octet-stream'
+      );
+      res.setHeader(
+        'Content-Disposition',
+        `inline; filename="${file.originalName}"`
+      );
+
+      cloudRes.pipe(res); // stream to browser
+    }).on('error', (err) => {
+      console.error(err);
+      res.status(500).send('Error streaming file');
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error fetching file');
+  }
+});
+
 // delete file (Cloudinary + DB)
 router.delete('/:id', auth, async (req, res) => {
   try {
-    const file = await File.findOne({ _id: req.params.id, user: req.user.id });
+    const file = await File.findOne({
+      _id: req.params.id,
+      user: req.user.id
+    });
     if (!file) return res.status(404).json({ error: 'Not found' });
 
-    try { await cloudinary.uploader.destroy(file.storedName); } catch (e) { /* ignore if already gone */ }
+    try {
+      await cloudinary.uploader.destroy(file.storedName);
+    } catch (e) {
+      /* ignore if already gone */
+    }
     await file.deleteOne();
     res.json({ ok: true });
   } catch (err) {
