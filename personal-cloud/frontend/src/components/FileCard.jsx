@@ -9,7 +9,7 @@ export default function FileCard({ file, onDelete }){
         <div className="text-right">
           {file.duplicateOf ? <div className="text-xs text-red-600">Duplicate</div> : <div className="text-xs text-green-600">Unique</div>}
           <div className="mt-2 flex gap-2">
-            <a className="text-sm underline" href={file.fileUrl} target="_blank" rel="noreferrer">View</a>
+            <a href={`${API_BASE}/api/files/view/${file._id}`} target="_blank" rel="noreferrer">View</a>
             <button onClick={onDelete} className="text-sm text-red-600">Delete</button>
           </div>
         </div>
