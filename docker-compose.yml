@@ -1,0 +1,79 @@
+name: personal-cloud-ai
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?copy .env.example to .env}
+      POSTGRES_DB: cloud_ai
+    ports: ["127.0.0.1:5432:5432"]
+    volumes: [db-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d cloud_ai"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  rustfs:
+    image: rustfs/rustfs:latest
+    environment:
+      RUSTFS_ACCESS_KEY: ${S3_ACCESS_KEY:?}
+      RUSTFS_SECRET_KEY: ${S3_SECRET_KEY:?}
+      RUSTFS_VOLUMES: /data
+      RUSTFS_ADDRESS: ":9000"
+      RUSTFS_CONSOLE_ADDRESS: ":9001"
+      RUSTFS_CONSOLE_ENABLE: "true"
+    ports: ["127.0.0.1:9000:9000", "127.0.0.1:9001:9001"]
+    volumes: [rustfs-data:/data]
+    restart: unless-stopped
+
+  ai_service:
+    build:
+      context: ./ai_service
+      args: { MODEL_NAME: "${MODEL_NAME:-all-MiniLM-L6-v2}" }
+    environment:
+      MODEL_NAME: ${MODEL_NAME:-all-MiniLM-L6-v2}
+      S3_ENDPOINT: http://rustfs:9000
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      S3_BUCKET: ${S3_BUCKET:-cloud-ai-files}
+      BACKEND_URL: http://backend:5000
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:?}
+    depends_on: [rustfs]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    environment:
+      BACKEND_PORT: 5000
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD}@db:5432/cloud_ai
+      JWT_SECRET: ${JWT_SECRET:?}
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:?}
+      S3_ENDPOINT: http://rustfs:9000
+      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-http://localhost:9000}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      S3_BUCKET: ${S3_BUCKET:-cloud-ai-files}
+      AI_SERVICE_URL: http://ai_service:8000
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-50}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+    depends_on:
+      db: { condition: service_healthy }
+      rustfs: { condition: service_started }
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports: ["3000:80"]
+    depends_on: [backend]
+    restart: unless-stopped
+
+volumes:
+  db-data:
+  rustfs-data:
