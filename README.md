@@ -132,21 +132,6 @@ The repeating `GET /health 200 OK` lines from `ai_service` are normal health che
 - The backend, database and storage listen on `127.0.0.1` only; the internal AI callback needs `INTERNAL_TOKEN`.
 - Uploads are limited by `MAX_UPLOAD_MB` (default 50), and logins are rate limited.
 
-## What changed from the original project
-**Fixed (it did not run before):** pgvector-enabled Postgres; schema and bucket created automatically; correct
-vector format and cosine search; frontend proxy and browser-reachable download links; no host `node_modules`
-in images; `bcryptjs` instead of native `bcrypt`; `.env` actually used; MinIO replaced by RustFS.
-
-**Security:** protected internal endpoint, localhost-only ports, mandatory secrets, upload limits, input validation,
-rate limiting, generic error messages, newer dependencies (AWS SDK v3, multer 2, Node 20).
-
-**AI and reliability:** non-blocking AI service with the model baked into the image, text and PDF content indexing,
-keyword tags, retried callbacks, `pending / done / failed` status, async error handling, storage cleanup on delete.
-
-**UI:** real login form, drag-and-drop multi-file upload with progress, loading skeletons, live indexing status with a
-scan animation, debounced smart search with match percentages, download and delete with animation, toast
-notifications, storage summary, dark mode, mobile layout, reduced-motion support.
-
 ## Project layout
 ```
 docker-compose.yml   .env.example
